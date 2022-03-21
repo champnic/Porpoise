@@ -10,3 +10,6 @@
 EDGE_ADO_PAT="<token>"
 EDGE_GH_PAT="<token>"
 ```
+
+# Run
+1. `node index.js`
