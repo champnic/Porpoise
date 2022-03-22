@@ -33,8 +33,9 @@ async function run() {
     const context = github.context;
     const env = process.env;
     let vm = getValuesFromPayload(github.context.payload, env);
+    console.log("VM: " + JSON.stringify(vm));
     const metrics = await calculateIssueMetrics(vm);
-    console.log("Metrics: " + metrics);
+    console.log("Metrics: " + JSON.stringify(metrics));
 
     // Initialize connection to ADO work tracking.
     adoWork = await edgeAdo.getWorkItemTrackingApi();
@@ -119,8 +120,8 @@ async function testAdo() {
 
 // todo - add JSDoc
 async function calculateIssueMetrics(vm) {
-	const octokit = new github.GitHub(vm.env.ghToken);
-	const { data: comments } = await octokit.issues.listComments({
+	const octokit = github.getOctokit(vm.env.ghToken);
+	const { data: comments } = await octokit.rest.issues.listComments({
 		owner: vm.owner,
 		repo: vm.repository,
 		issue_number: vm.number,
