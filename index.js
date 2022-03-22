@@ -33,7 +33,6 @@ async function run() {
     const context = github.context;
     const env = process.env;
     let vm = getValuesFromPayload(github.context.payload, env);
-    console.log("VM: " + JSON.stringify(vm));
     const metrics = await calculateIssueMetrics(vm);
     console.log("Metrics: " + JSON.stringify(metrics));
 
