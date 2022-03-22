@@ -12,8 +12,21 @@ let authHandler = ado.getPersonalAccessTokenHandler(edgeAdoPat);
 let edgeAdo = new ado.WebApi(edgeAdoUrl, authHandler);
 
 async function run() {
+
+}
+
+// This function is just a testbed for how the ADO API works, like what values are
+// returned by Work Item Types, Bugs, all Fields, etc.
+async function investigateAdoInfo() {
+    let testId = 38617678;
+
     let adoWork = await edgeAdo.getWorkItemTrackingApi();
     let myBug = await adoWork.getWorkItem(38617678);
+    //adoWork.createField()
+    let bugType = await adoWork.getWorkItemType("Edge", "Bug");
+    let scenarioType = await adoWork.getWorkItemType("Edge", "Scenario");
+
+    let fields = await adoWork.getFields("Edge");
 }
 
 run();
