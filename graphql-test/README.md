@@ -13,16 +13,13 @@ This will return something like this:
 
 ```json
 {
-  mentions: { CrossReferencedEvent: 9 },
-  reactions: { positive: 14, negative: 0 },
-  comments: [
-    { positive: 0, negative: 0 },
-    { positive: 12, negative: 1 },
-    ...
-    { positive: 6, negative: 0 },
-    { positive: 3, negative: 1 }
+  "mentions": { "CrossReferencedEvent": 9 },
+  "reactions": { "positive": 14, "negative": 0 },
+  "comments": [
+    { "positive": 0, "negative": 0 },
+    { "positive": 12, "negative": 1 },
   ],
-  nbComments: 81
+  "nbComments": 81
 }
 ```
 
