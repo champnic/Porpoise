@@ -1,3 +1,4 @@
+const github = require(`@actions/github`);
 const ado = require("azure-devops-node-api");
 require("dotenv").config();
 
@@ -29,6 +30,12 @@ let edgeAdo = new ado.WebApi(edgeAdoUrl, authHandler);
 let adoWork = {};
 
 async function run() {
+    const context = github.context;
+    const env = process.env;
+    let vm = getValuesFromPayload(github.context.payload, env);
+    const metrics = await calculateIssueMetrics(vm);
+	console.log("Metrics: " + metrics);
+
     // Initialize connection to ADO work tracking.
     adoWork = await edgeAdo.getWorkItemTrackingApi();
 
@@ -108,6 +115,89 @@ async function testAdo() {
 
     // All fields
     //let fields = await adoWork.getFields("Edge");
+}
+
+// todo - add JSDoc
+async function calculateIssueMetrics(vm) {
+	const octokit = new github.GitHub(vm.env.ghToken);
+	const { data: comments } = await octokit.issues.listComments({
+		owner: vm.owner,
+		repo: vm.repository,
+		issue_number: vm.number,
+	});
+	let metrics = {
+		uniqueUsers: new Set(),
+		reactionCount: 0,
+		commentCount: comments.length,
+		get uniqueUserCount() {return this.uniqueUsers.size} 
+	}
+	for (let comment of comments) {
+		console.log("comment: " + JSON.stringify(comment));
+		metrics.uniqueUsers.add(comment.user.id);
+		metrics.reactionCount += comment.reactions.total_count;
+	}
+	return metrics;
+}
+
+// get object values from the payload that will be used for logic, updates, finds, and creates
+function getValuesFromPayload(payload, env) {
+	// prettier-ignore
+	var vm = {
+		action: payload.action != undefined ? payload.action : "",
+		url: payload.issue.html_url != undefined ? payload.issue.html_url : "",
+		number: payload.issue.number != undefined ? payload.issue.number : -1,
+		title: payload.issue.title != undefined ? payload.issue.title : "",
+		state: payload.issue.state != undefined ? payload.issue.state : "",
+		user: payload.issue.user.login != undefined ? payload.issue.user.login : "",
+		body: payload.issue.body != undefined ? payload.issue.body : "",
+		repo_fullname: payload.repository.full_name != undefined ? payload.repository.full_name : "",
+		repo_name: payload.repository.name != undefined ? payload.repository.name : "",
+		repo_url: payload.repository.html_url != undefined ? payload.repository.html_url : "",
+		closed_at: payload.issue.closed_at != undefined ? payload.issue.closed_at : null,
+		owner: payload.repository.owner != undefined ? payload.repository.owner.login : "",
+		label: "",
+		comment_text: "",
+		comment_url: "",
+		organization: "",
+		repository: "",
+		env: {
+			organization: env.ado_organization != undefined ? env.ado_organization : "",
+			orgUrl: env.ado_organization != undefined ? "https://dev.azure.com/" + env.ado_organization : "",
+			adoToken: env.ado_token != undefined ? env.ado_token : "",
+			ghToken: env.github_token != undefined ? env.github_token : "",
+			project: env.ado_project != undefined ? env.ado_project : "",
+			areaPath: env.ado_area_path != undefined ? env.ado_area_path : "",
+			wit: env.ado_wit != undefined ? env.ado_wit : "Bug",
+			tags: env.ado_tags != undefined ? env.ado_tags : "",
+			setLabelsAsTags: env.ado_set_labels != undefined ? env.ado_set_labels : true,
+			closedState: env.ado_close_state != undefined ? env.ado_close_state : "Closed",
+			newState: env.ado_new_state != undefined ? env.ado_new_State : "Active",
+			bypassRules: env.ado_bypassrules != undefined ? env.ado_bypassrules : false,
+			createOnTagging: env.create_on_tagging != undefined ? env.create_on_tagging : false,
+			tagOnClose: env.ado_tag_on_close != undefined ? env.ado_tag_on_close : ""
+		}
+	};
+
+	// label is not always part of the payload
+	if (payload.label != undefined) {
+		vm.label = payload.label.name != undefined ? payload.label.name : "";
+	}
+
+	// comments are not always part of the payload
+	// prettier-ignore
+	if (payload.comment != undefined) {
+		vm.comment_text = payload.comment.body != undefined ? payload.comment.body : "";
+		vm.comment_url = payload.comment.html_url != undefined ? payload.comment.html_url : "";
+	}
+
+	// split repo full name to get the org and repository names
+	if (vm.repo_fullname != "") {
+		var split = payload.repository.full_name.split("/");
+		vm.organization = split[0] != undefined ? split[0] : "";
+		vm.repository = split[1] != undefined ? split[1] : "";
+	}
+
+	return vm;
 }
 
 run();
