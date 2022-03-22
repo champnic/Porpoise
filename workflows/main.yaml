@@ -1,0 +1,25 @@
+name: test workflow
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened]
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    name: Testing workflow
+    steps:       
+    - uses: champnic/Porpoise@main
+      env:
+        github_token: "${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}"  
+        ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'
+        ado_organization: 'FAKE org name so that i don't accidentally put random stuff on our ADO'
+        ado_project: 'Edge'
+        ado_area_path: 'Edge\Dev Experience\WebView'
+        ado_tags: 'WV2_GitHub'
+        ado_tag_on_close: 'WV2_GitHub_Closed'
+        ado_bypassrules: false
+        ado_set_labels: false
+        create_on_tag: 'tracked'

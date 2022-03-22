@@ -34,7 +34,7 @@ async function run() {
     const env = process.env;
     let vm = getValuesFromPayload(github.context.payload, env);
     const metrics = await calculateIssueMetrics(vm);
-	console.log("Metrics: " + metrics);
+    console.log("Metrics: " + metrics);
 
     // Initialize connection to ADO work tracking.
     adoWork = await edgeAdo.getWorkItemTrackingApi();
