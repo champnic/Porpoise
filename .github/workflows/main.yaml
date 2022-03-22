@@ -13,7 +13,7 @@ jobs:
     steps:       
     - uses: champnic/Porpoise@main
       env:
-        github_token: "${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}"  
+        github_token: "${{ secrets.GITHUB_TOKEN }}"  
         ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'
         ado_organization: 'FAKE org name so that i dont accidentally put random stuff on our ADO'
         ado_project: 'Edge'
