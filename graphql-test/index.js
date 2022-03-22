@@ -56,16 +56,16 @@ graphqlWithAuth(`
         }
       },
       comments(last: 100) {
-      	nodes {
+        nodes {
           author { login },
           authorAssociation,
-      		reactions(last: 100) {
-      			nodes {
+          reactions(last: 100) {
+            nodes {
               content
             }
-    			}
+          }
         }
-    	}
+      }
     }
   }
 }
