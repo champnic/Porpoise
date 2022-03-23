@@ -128,12 +128,12 @@ async function calculateIssueMetrics(vm) {
 	}
 	const octokit = github.getOctokit(vm.env.ghToken);
 
+	// process the issue body
 	const { data: issue } = await octokit.rest.issues.get({
 		owner: vm.owner,
 		repo: vm.repository,
 		issue_number: vm.number,
 	});
-	console.log("Issue: " + JSON.stringify(issue));
 	metrics.uniqueUsers.add(issue.user.id);
 	metrics.reactionCount += issue.reactions.total_count;
 	// example issue body: "throwing a test ado link\r\n\r\n[AB#38543568](https://microsoft.visualstudio.com/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d/_workitems/edit/38543568)
@@ -141,6 +141,7 @@ async function calculateIssueMetrics(vm) {
 	let ADORegExpMatch = ADOLink.match(/AB#([0-9]+)]\(https\:\/\/microsoft\.visualstudio\.com\/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d\/_workitems\/edit\//);
 	metrics.ADONumber = ADORegExpMatch ? ADORegExpMatch[1] : undefined;
 
+	// process comments
 	const { data: comments } = await octokit.rest.issues.listComments({
 		owner: vm.owner,
 		repo: vm.repository,
