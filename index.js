@@ -122,18 +122,19 @@ async function calculateIssueMetrics(vm) {
 	let metrics = {
 		uniqueUsers: new Set(),
 		reactionCount: 0,
-		commentCount: 1,		// start wiith 1 because listComments does not include the first issue post
-		ADONumber: undefined,	// ADO work item # or undefined of not found
+		commentCount: 1,		// start wiith 1 because listComments does not include the main issue body
+		ADONumber: undefined,	// ADO work item # or undefined if not found
 		get uniqueUserCount() {return this.uniqueUsers.size} 
 	}
 	const octokit = github.getOctokit(vm.env.ghToken);
-
-	// process the issue body
-	const { data: issue } = await octokit.rest.issues.get({
+	const requestParam = {
 		owner: vm.owner,
 		repo: vm.repository,
 		issue_number: vm.number,
-	});
+	};
+
+	// process the issue body
+	const { data: issue } = await octokit.rest.issues.get(requestParam);
 	metrics.uniqueUsers.add(issue.user.id);
 	metrics.reactionCount += issue.reactions.total_count;
 	// example issue body: "throwing a test ado link\r\n\r\n[AB#38543568](https://microsoft.visualstudio.com/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d/_workitems/edit/38543568)
@@ -142,11 +143,7 @@ async function calculateIssueMetrics(vm) {
 	metrics.ADONumber = ADORegExpMatch ? ADORegExpMatch[1] : undefined;
 
 	// process comments
-	const { data: comments } = await octokit.rest.issues.listComments({
-		owner: vm.owner,
-		repo: vm.repository,
-		issue_number: vm.number,
-	});
+	const { data: comments } = await octokit.rest.issues.listComments(requestParam);
 	metrics.commentCount += comments.length;
 	for (let comment of comments) {
 		metrics.uniqueUsers.add(comment.user.id);
