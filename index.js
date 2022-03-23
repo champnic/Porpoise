@@ -19,7 +19,6 @@ const { updateWorkItemForIssue } = require("./ado.js");
 // GH_REPO: The name of the repo, ie. "WebView2Feedback"
 // ADO_PAT: An Azure DevOps Personal Access Token with the "Work Items - Read & Write" scope.
 // ADO_ORG: The name of the ADO org, ie. "Microsoft"
-// ADO_PROJECT: The name of the ADO project, ie. "Edge"
 
 const isGitHubAction = !!github.context.action;
 

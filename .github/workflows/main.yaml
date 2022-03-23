@@ -17,4 +17,3 @@ jobs:
         GH_REPO: 'Porpoise'
         ADO_PAT: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'
         ADO_ORG: 'microsoft'
-        ADO_PROJECT: 'Edge'
