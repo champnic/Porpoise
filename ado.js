@@ -14,14 +14,14 @@ const NL = "<br/>";
  * it with the given metrics and score.
  * 
  * @param {Object} adoClient The ADO API client object.
- * @param {Object} details the GitHub issue details and score.
+ * @param {Object} metrics the GitHub issue metrics and score.
  */
-module.exports.updateWorkItemForIssue = async function (adoClient, details, score) {
-    const adoWorkItem = await getAdoWorkItemFromIssue(adoClient, details.body);
+module.exports.updateWorkItemForIssue = async function (adoClient, metrics, score) {
+    const adoWorkItem = await getAdoWorkItemFromIssue(adoClient, metrics.body);
 
     if (adoWorkItem) {
         console.log(`Found work item ${adoWorkItem.id}. Updating it...`);
-        await writeMetricsToAdo(adoClient, adoWorkItem, details, score);
+        await writeMetricsToAdo(adoClient, adoWorkItem, metrics, score);
     }
 }
 
@@ -62,7 +62,7 @@ async function getAdoWorkItemFromIssue(adoClient, issueBody) {
  * 
  * @param {Object} adoClient The ADO API client object.
  * @param {object} adoWorkItem The ADO work item to be updated. 
- * @param {object} details The metrics to be updated in the work item's description.
+ * @param {object} metrics The metrics to be updated in the work item's description.
  * @param {number} score The importance score to be added in the work item's custom string.
  */
 async function writeMetricsToAdo(adoClient, adoWorkItem, metrics, score) {

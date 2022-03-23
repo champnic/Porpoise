@@ -11,7 +11,7 @@ const NEGATIVE_REACTIONS = ["CONFUSED", "THUMBS_DOWN"];
  * @returns {Object} The GitHub issue details object
  */
 module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId) {
-    const details = {
+    const metrics = {
         id: ghId,
         body: "",
         mentions: {},
@@ -34,7 +34,7 @@ module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId)
     const data = await octokit.graphql(getQuery(ghOwner, ghRepo, ghId));
     const issue = data.repository.issue;
 
-    details.body = issue.body;
+    metrics.body = issue.body;
 
     const users = new Set();
     users.add(issue.author.login);
@@ -44,37 +44,37 @@ module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId)
             continue;
         }
 
-        details.nbMentions++;
+        metrics.nbMentions++;
 
-        if (!details.mentions[event.type]) {
-            details.mentions[event.type] = 0;
+        if (!metrics.mentions[event.type]) {
+            metrics.mentions[event.type] = 0;
         }
-        details.mentions[event.type]++;
+        metrics.mentions[event.type]++;
 
         users.add(event.actor.login);
     }
 
-    details.reactions = processReactions(issue.reactions);
+    metrics.reactions = processReactions(issue.reactions);
 
     issue.comments.nodes.forEach(comment => {
         users.add(comment.author.login);
 
         const reactions = processReactions(comment.reactions);
-        details.reactionsOnComments.positive += reactions.positive;
-        details.reactionsOnComments.negative += reactions.negative;
-        details.reactionsOnComments.neutral += reactions.neutral;
+        metrics.reactionsOnComments.positive += reactions.positive;
+        metrics.reactionsOnComments.negative += reactions.negative;
+        metrics.reactionsOnComments.neutral += reactions.neutral;
 
         if (comment.authorAssociation === "NONE") {
-            details.nbNonMemberComments++;
+            metrics.nbNonMemberComments++;
         }
     });
 
-    details.nbComments = issue.comments.nodes.length;
-    details.uniqueUsers = users.size;
+    metrics.nbComments = issue.comments.nodes.length;
+    metrics.uniqueUsers = users.size;
 
-    const score = calculateGitHubIssueScore(details);
+    const score = calculateGitHubIssueScore(metrics);
 
-    return { details, score };
+    return { metrics, score };
 }
 
 /**

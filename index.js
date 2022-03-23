@@ -45,16 +45,20 @@ async function run() {
     const ghId = isGitHubAction ? github.context.issue.number : TEST_GH_ID;
 
     console.log(`Retrieving metrics about issue ${ghId} and calculating a score...`);
-    const { details, score } = await getIssueDetails(octokit, GH_OWNER, GH_REPO, ghId);
+    const { metrics, score } = await getIssueDetails(octokit, GH_OWNER, GH_REPO, ghId);
 
-    console.log(`Metrics: ${JSON.stringify(details)} - Score: ${score}`);
+    console.log(`Metrics: ${formatMetrics(metrics)} - Score: ${score}`);
 
     if (ONLY_TEST_GH) {
         return;
     }
 
     console.log("Retrieving the corresponding ADO work item and updating it...");
-    await updateWorkItemForIssue(adoClient, details, score);
+    await updateWorkItemForIssue(adoClient, metrics, score);
+}
+
+function formatMetrics(metrics) {
+    return JSON.stringify(metrics, (key, value) => key === 'body' ? undefined : value);
 }
 
 run().then(() => {
