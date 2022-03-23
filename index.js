@@ -5,12 +5,28 @@ require("dotenv").config();
 // Uncomment this line to verify that the environment and PATs are loaded correctly
 //console.log(process.env);
 
+// ENVIRONMENT - These constants must be defined in the environment: .env locally, or in the GitHub Action definition.
+// GH_PAT: A GitHub Personal Access Token with the "repo" scope.
+// GH_OWNER: The owner of the GitHub repo, ie. "champnic"
+// GH_REPO: The name of the repo, ie. "Porpoise"
+// ADO_PAT: An Azure DevOps Personal Access Token with the "Work Items - Read & Write" scope.
+// ADO_ORG: The name of the ADO org, ie. "Microsoft"
+// ADO_PROJECT: The name of the ADO project, ie. "Edge"
+//
 
-// CONSTANTS
+
+// CONSTANTS -----------------------
+
+// GitHub Constants
+const runningOnGitHub = !!github.context.action;
+const ghToken = process.env.GH_PAT;
+const ghOwner = process.env.GH_OWNER;
+const ghRepo = process.env.GH_REPO;
+
 // Ado Constants
-const edgeAdoUrl = "https://dev.azure.com/microsoft";
-const edgeProject = "Edge";
-const edgeAdoPat = process.env.EDGE_ADO_PAT;
+const adoUrl = "https://dev.azure.com/" + process.env.ADO_ORG;
+const adoProject = process.env.ADO_PROJECT;
+const adoToken = process.env.ADO_PAT;
 
 // Field Names
 const fieldWorkItemType = "Microsoft.VSTS.CMMI.TaskType";
@@ -23,24 +39,41 @@ const startTag = "------------- <b>GitHub Metrics (auto-generated)</b> ---------
 const endTag =   "------------- <b>End GitHub Metrics</b> --------------------------"
 const nl = "<br/>"
 
-// END CONSTANTS
+// END CONSTANTS ----------------------
 
-let authHandler = ado.getPersonalAccessTokenHandler(edgeAdoPat);
-let edgeAdo = new ado.WebApi(edgeAdoUrl, authHandler);
+// ADO Objects
+let authHandler = ado.getPersonalAccessTokenHandler(adoToken);
+let adoWeb = new ado.WebApi(adoUrl, authHandler);
 let adoWork = {};
 
+// GitHub Objects
+let octokit = github.getOctokit(ghToken);
+
 async function run() {
-    const context = github.context;
-    const env = process.env;
-    let vm = getValuesFromPayload(github.context.payload, env);
-    const metrics = await calculateIssueMetrics(vm);
-    console.log("Metrics: " + JSON.stringify(metrics));
+    let ghId = 1; // test issue number when running locally
 
-    // Initialize connection to ADO work tracking.
-    adoWork = await edgeAdo.getWorkItemTrackingApi();
+    let ghIssue = null;
+    if (runningOnGitHub) {
+        // Running on GitHub, get info from the context payload
+        ghIssue = getIssueFromPayload();
+    } else {
+        // Running locally
+        ghIssue = await getIssueFromRest(1);
+    }
 
-    // Uncomment this line to test the metrics updating
-    //writeMetricsToAdo(38617678, {"Reactions": 12, "Users": 4, "Messages": 20}, 27);
+    ghIssue.comments = await getCommentsFromRest(ghIssue.number);
+
+    const ghMetrics = await calculateIssueMetrics(ghIssue);
+    console.log("Metrics: " + JSON.stringify(ghMetrics));
+
+    const adoId = getAdoFromIssue(ghIssue);
+
+    if (adoId) {
+        // Initialize connection to ADO work tracking.
+        adoWork = await adoWeb.getWorkItemTrackingApi();
+
+        await writeMetricsToAdo(adoId, ghMetrics, 27);
+    }
 }
 
 /**
@@ -54,7 +87,7 @@ async function run() {
  * @param {number} result - The result of the GH Importance calculation.
  */
 async function writeMetricsToAdo(workId, metrics, result) {
-    let adoWork = await edgeAdo.getWorkItemTrackingApi();
+    //let adoWork = await edgeAdo.getWorkItemTrackingApi();
 
     let myBug = await adoWork.getWorkItem(workId);
     let descriptionFieldName = myBug.fields[fieldWorkItemType] == "Bug"
@@ -106,7 +139,7 @@ async function writeMetricsToAdo(workId, metrics, result) {
 // returned by Work Item Types, Bugs, all Fields, etc.
 async function testAdo() {
     let testId = 38617678;
-    let adoWork = await edgeAdo.getWorkItemTrackingApi();
+    let adoWork = await adoWeb.getWorkItemTrackingApi();
 
     let myBug = await adoWork.getWorkItem(testId);
     // Work item types
@@ -118,43 +151,65 @@ async function testAdo() {
 }
 
 // todo - add JSDoc
-async function calculateIssueMetrics(vm) {
+async function calculateIssueMetrics(issue) {
 	let metrics = {
-		uniqueUsers: new Set(),
-		reactionCount: 0,
-		commentCount: 1,		// start wiith 1 because listComments does not include the main issue body
-		ADONumber: undefined,	// ADO work item # or undefined if not found
-		get uniqueUserCount() {return this.uniqueUsers.size} 
+		ReactionCount: 0,
+		CommentCount: 1,		// start wiith 1 because listComments does not include the main issue body
+		UniqueUserCount: 1 
 	}
-	const octokit = github.getOctokit(vm.env.ghToken);
+
+	metrics.ReactionCount += issue.reactions.total_count;
+
+	// process comments
+	metrics.CommentCount += issue.comments.length;
+    let uniqueUsers = new Set();
+    uniqueUsers.add(issue.user.id);
+	for (let comment of issue.comments) {
+		uniqueUsers.add(comment.user.id);
+		metrics.ReactionCount += comment.reactions.total_count;
+	}
+    metrics.UniqueUserCount = uniqueUsers.size;
+
+	return metrics;
+}
+
+function getAdoFromIssue(issue) {
+	// example issue body: "throwing a test ado link\r\n\r\n[AB#38543568](https://microsoft.visualstudio.com/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d/_workitems/edit/38543568)
+	let ADOLink = issue.body.substring(issue.body.lastIndexOf('\r\n\r\n[AB#'));
+	let ADORegExpMatch = ADOLink.match(/AB#([0-9]+)]\(https\:\/\/microsoft\.visualstudio\.com\/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d\/_workitems\/edit\//);
+	
+    let abIndex = issue.body.lastIndexOf("AB#");
+    let adoId = issue.body.substring(abIndex + 3, abIndex + 11);
+    return adoId; //ADORegExpMatch ? ADORegExpMatch[1] : undefined;
+}
+
+async function getIssueFromRest(ghId) {
 	const requestParam = {
-		owner: vm.owner,
-		repo: vm.repository,
-		issue_number: vm.number,
+		owner: ghOwner,
+		repo: ghRepo,
+		issue_number: ghId,
 	};
 
 	// process the issue body
 	const { data: issue } = await octokit.rest.issues.get(requestParam);
-	metrics.uniqueUsers.add(issue.user.id);
-	metrics.reactionCount += issue.reactions.total_count;
-	// example issue body: "throwing a test ado link\r\n\r\n[AB#38543568](https://microsoft.visualstudio.com/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d/_workitems/edit/38543568)
-	let ADOLink = issue.body.substring(issue.body.lastIndexOf('\r\n\r\n[AB#'));
-	let ADORegExpMatch = ADOLink.match(/AB#([0-9]+)]\(https\:\/\/microsoft\.visualstudio\.com\/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d\/_workitems\/edit\//);
-	metrics.ADONumber = ADORegExpMatch ? ADORegExpMatch[1] : undefined;
+    return issue;5
+}
 
-	// process comments
+async function getCommentsFromRest(ghId) {
+	const requestParam = {
+		owner: ghOwner,
+		repo: ghRepo,
+		issue_number: ghId,
+	};
+
 	const { data: comments } = await octokit.rest.issues.listComments(requestParam);
-	metrics.commentCount += comments.length;
-	for (let comment of comments) {
-		metrics.uniqueUsers.add(comment.user.id);
-		metrics.reactionCount += comment.reactions.total_count;
-	}
-	return metrics;
+    return comments;
 }
 
 // get object values from the payload that will be used for logic, updates, finds, and creates
-function getValuesFromPayload(payload, env) {
-	// prettier-ignore
+function getIssueFromPayload() {
+    let env = process.env;
+    let payload = github.context.payload;
 	var vm = {
 		action: payload.action != undefined ? payload.action : "",
 		url: payload.issue.html_url != undefined ? payload.issue.html_url : "",
