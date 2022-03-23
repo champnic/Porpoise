@@ -12,8 +12,6 @@ require("dotenv").config();
 // ADO_PAT: An Azure DevOps Personal Access Token with the "Work Items - Read & Write" scope.
 // ADO_ORG: The name of the ADO org, ie. "Microsoft"
 // ADO_PROJECT: The name of the ADO project, ie. "Edge"
-//
-
 
 // CONSTANTS -----------------------
 
@@ -36,29 +34,33 @@ const fieldCustomString3 = "Microsoft.VSTS.Common.CustomString03";
 
 // Metric Text
 const startTag = "------------- <b>GitHub Metrics (auto-generated)</b> -------------"
-const endTag =   "------------- <b>End GitHub Metrics</b> --------------------------"
+const endTag = "------------- <b>End GitHub Metrics</b> --------------------------"
 const nl = "<br/>"
+
+// Test issue number when running locally
+const testGhId = 1;
 
 // END CONSTANTS ----------------------
 
 // ADO Objects
-let authHandler = ado.getPersonalAccessTokenHandler(adoToken);
-let adoWeb = new ado.WebApi(adoUrl, authHandler);
+const authHandler = ado.getPersonalAccessTokenHandler(adoToken);
+const adoWeb = new ado.WebApi(adoUrl, authHandler);
 let adoWork = {};
 
 // GitHub Objects
-let octokit = github.getOctokit(ghToken);
+const octokit = github.getOctokit(ghToken);
 
+/**
+ * Main entry point. Called automatically at the bottom of this file.
+ */
 async function run() {
-    let ghId = 1; // test issue number when running locally
-
     let ghIssue = null;
     if (runningOnGitHub) {
         // Running on GitHub, get info from the context payload
         ghIssue = github.context.payload.issue;
     } else {
         // Running locally
-        ghIssue = await getIssueFromRest(1);
+        ghIssue = await getIssueFromRest(testGhId);
     }
 
     ghIssue.comments = await getCommentsFromRest(ghIssue.number);
@@ -72,7 +74,7 @@ async function run() {
         // Initialize connection to ADO work tracking.
         adoWork = await adoWeb.getWorkItemTrackingApi();
 
-        await writeMetricsToAdo(adoId, ghMetrics, 27);
+        await writeMetricsToAdo(adoId, ghMetrics, 42);
     }
 }
 
@@ -100,7 +102,7 @@ async function writeMetricsToAdo(workId, metrics, result) {
     let startIndex = currentDescription.indexOf(startTag);
     let endIndex = currentDescription.indexOf(endTag);
 
-    let startString =  currentDescription;
+    let startString = currentDescription;
     let endString = "";
     if (startIndex >= 0 && endIndex >= 0) {
         startString = currentDescription.substring(0, startIndex);
@@ -114,7 +116,7 @@ async function writeMetricsToAdo(workId, metrics, result) {
     // TODO: Make this look nicer. Table? Can use HTML formatting.
     let metricsString = "<table>";
     Object.entries(metrics).forEach(([key, value]) => {
-        metricsString += "<tr><td>"+key+"</td><td>"+value+"</td></tr>";
+        metricsString += "<tr><td>" + key + "</td><td>" + value + "</td></tr>";
     });
     metricsString += "</table>";
 
@@ -137,57 +139,57 @@ async function writeMetricsToAdo(workId, metrics, result) {
 
 // todo - add JSDoc
 async function calculateIssueMetrics(issue) {
-	let metrics = {
-		ReactionCount: 0,
-		CommentCount: 1,		// start with 1 because listComments does not include the main issue body
-		UniqueUserCount: 1 
-	}
+    let metrics = {
+        ReactionCount: 0,
+        CommentCount: 1,		// start with 1 because listComments does not include the main issue body
+        UniqueUserCount: 1
+    }
 
-	metrics.ReactionCount += issue.reactions.total_count;
+    metrics.ReactionCount += issue.reactions.total_count;
 
-	// process comments
-	metrics.CommentCount += issue.comments.length;
+    // process comments
+    metrics.CommentCount += issue.comments.length;
     let uniqueUsers = new Set();
     uniqueUsers.add(issue.user.id);
-	for (let comment of issue.comments) {
-		uniqueUsers.add(comment.user.id);
-		metrics.ReactionCount += comment.reactions.total_count;
-	}
+    for (let comment of issue.comments) {
+        uniqueUsers.add(comment.user.id);
+        metrics.ReactionCount += comment.reactions.total_count;
+    }
     metrics.UniqueUserCount = uniqueUsers.size;
 
-	return metrics;
+    return metrics;
 }
 
 function getAdoFromIssue(issue) {
-	// example issue body: "throwing a test ado link\r\n\r\n[AB#38543568](https://microsoft.visualstudio.com/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d/_workitems/edit/38543568)
-	let ADOLink = issue.body.substring(issue.body.lastIndexOf('\r\n\r\n[AB#'));
-	let ADORegExpMatch = ADOLink.match(/AB#([0-9]+)]\(https\:\/\/microsoft\.visualstudio\.com\/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d\/_workitems\/edit\//);
-	
+    // example issue body: "throwing a test ado link\r\n\r\n[AB#38543568](https://microsoft.visualstudio.com/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d/_workitems/edit/38543568)
+    let ADOLink = issue.body.substring(issue.body.lastIndexOf('\r\n\r\n[AB#'));
+    let ADORegExpMatch = ADOLink.match(/AB#([0-9]+)]\(https\:\/\/microsoft\.visualstudio\.com\/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d\/_workitems\/edit\//);
+
     let abIndex = issue.body.lastIndexOf("AB#");
     let adoId = issue.body.substring(abIndex + 3, abIndex + 11);
     return adoId; //ADORegExpMatch ? ADORegExpMatch[1] : undefined;
 }
 
 async function getIssueFromRest(ghId) {
-	const requestParam = {
-		owner: ghOwner,
-		repo: ghRepo,
-		issue_number: ghId,
-	};
+    const requestParam = {
+        owner: ghOwner,
+        repo: ghRepo,
+        issue_number: ghId,
+    };
 
-	// process the issue body
-	const { data: issue } = await octokit.rest.issues.get(requestParam);
-    return issue;5
+    // process the issue body
+    const { data: issue } = await octokit.rest.issues.get(requestParam);
+    return issue; 5
 }
 
 async function getCommentsFromRest(ghId) {
-	const requestParam = {
-		owner: ghOwner,
-		repo: ghRepo,
-		issue_number: ghId,
-	};
+    const requestParam = {
+        owner: ghOwner,
+        repo: ghRepo,
+        issue_number: ghId,
+    };
 
-	const { data: comments } = await octokit.rest.issues.listComments(requestParam);
+    const { data: comments } = await octokit.rest.issues.listComments(requestParam);
     return comments;
 }
 

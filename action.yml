@@ -1,12 +1,9 @@
-name: "GitHub Issues to Azure DevOps"
-description: "This action will Sync your GitHub Issue to Azure Boards when an Issue is created or updated"
-author: "danhellem"
+name: "Issue metrics to ADO"
+description: "This action will calculate issue importance metrics and sync them to ADO"
+author: "champnic"
 branding:
-  icon: "book-open"
-  color: "green"
-outputs:
-  id:
-    description: "id of work item created"
+  icon: "bar-chart-2"
+  color: "yellow"
 runs:
   using: "node16"
   main: "index.js"

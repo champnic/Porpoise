@@ -1,15 +1,14 @@
-name: test workflow
+name: Sync metrics
 
 on:
   issue_comment:
-    types: [created]
+    types: [created, edited]
   issues:
-    types: [opened]
+    types: [opened, edited]
 
 jobs:
   alert:
     runs-on: ubuntu-latest
-    name: Testing workflow
     steps:       
     - uses: champnic/Porpoise@main
       env:
