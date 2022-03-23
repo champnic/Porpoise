@@ -13,7 +13,7 @@ jobs:
     steps:       
     - uses: champnic/Porpoise@main
       env:
-        GH_PAT: '${{ secrets.GITHUB_TOKEN }}'
+        GH_PAT: '${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}'
         GH_OWNER: 'champnic'
         GH_REPO: 'Porpoise'
         ADO_PAT: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'
