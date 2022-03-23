@@ -128,7 +128,7 @@ async function calculateIssueMetrics(vm) {
 	}
 	const octokit = github.getOctokit(vm.env.ghToken);
 
-	const issue = await octokit.rest.issues.get({
+	const { data: issue } = await octokit.rest.issues.get({
 		owner: vm.owner,
 		repo: vm.repository,
 		issue_number: vm.number,
