@@ -2,9 +2,9 @@ name: Sync metrics
 
 on:
   issue_comment:
-    types: [created, edited]
+    types: [created, edited, deleted]
   issues:
-    types: [opened, edited]
+    types: [opened, edited, deleted, labeled, unlabeled]
 
 jobs:
   alert:
