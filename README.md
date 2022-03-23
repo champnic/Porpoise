@@ -12,12 +12,12 @@
 1. Create an ADO Personal Access Token with the "Work Items - Read & Write" scope
 1. Create an environment file for testing locally: `.env` (**do not check this file in**).
 1. Fill in the file as follows
-   * GH_PAT="<your gh pat>"
-   * GH_OWNER="<gh org name for the repo>"
-   * GH_REPO="<gh repo name>"
-   * GH_TEST_ID=<gh issue number for local testing>
-   * ADO_PAT="<your ado pat>"
-   * ADO_ORG="<ado org name>"
+   * GH_PAT="`<your gh pat>`"
+   * GH_OWNER="`<gh org name for the repo>`"
+   * GH_REPO="`<gh repo name>`"
+   * GH_TEST_ID=`<gh issue number for local testing>`
+   * ADO_PAT="`<your ado pat>`"
+   * ADO_ORG="`<ado org name>`"
 
 ## Run
 
