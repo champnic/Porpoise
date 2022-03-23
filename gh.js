@@ -27,6 +27,7 @@ module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId)
             neutral: 0,
         },
         nbComments: 0,
+        nbNonMemberComments: 0,
         uniqueUsers: 0,
     };
 
@@ -62,6 +63,10 @@ module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId)
         details.reactionsOnComments.positive += reactions.positive;
         details.reactionsOnComments.negative += reactions.negative;
         details.reactionsOnComments.neutral += reactions.neutral;
+
+        if (comment.authorAssociation === "NONE") {
+            details.nbNonMemberComments++;
+        }
     });
 
     details.nbComments = issue.comments.nodes.length;
@@ -97,8 +102,9 @@ function calculateGitHubIssueScore(metrics) {
     // Each positive reaction on a comment also adds 1 point.
     score += metrics.reactionsOnComments.positive;
 
-    // Each comment counts as 2 points.
-    score += metrics.nbComments * 2;
+    // Each non-member comment counts as 2 points, and member comment as 1.
+    score += metrics.nbComments - metrics.nbNonMemberComments;
+    score += metrics.nbNonMemberComments * 2;
 
     // Mentions on this issue count as 1 point (dups and other events).
     score += metrics.nbMentions;

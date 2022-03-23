@@ -92,7 +92,8 @@ async function writeMetricsToAdo(adoClient, adoWorkItem, metrics, score) {
     <ul>
       <li><strong>Score</strong>: ${score}</li>
       <li><strong>Unique users</strong>: ${metrics.uniqueUsers}</li>
-      <li><strong>Comments</strong>: ${metrics.nbComments}</li>
+      <li><strong>All comments</strong>: ${metrics.nbComments}</li>
+      <li><strong>Non-member comments</strong>: ${metrics.nbNonMemberComments}</li>
       <li><strong>Reactions</strong>: ${metrics.reactions.positive} 😀 / ${metrics.reactions.neutral} 😐 / ${metrics.reactions.negative} 😒</li>
       <li><strong>Reactions on comments</strong>: ${metrics.reactionsOnComments.positive} 😀 / ${metrics.reactionsOnComments.neutral} 😐 / ${metrics.reactionsOnComments.negative} 😒</li>
       <li><strong>Mentions</strong>: ${metrics.nbMentions}</li>

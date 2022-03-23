@@ -38,6 +38,8 @@ const adoClient = new ado.WebApi(ADO_URL, ado.getPersonalAccessTokenHandler(ADO_
 
 // Test issue number when running locally
 const TEST_GH_ID = 1;
+// Set to true if you want to only test the GitHub API part, but not write to ADO.
+const ONLY_TEST_GH = false;
 
 async function run() {
     const ghId = isGitHubAction ? github.context.issue.number : TEST_GH_ID;
@@ -46,6 +48,10 @@ async function run() {
     const { details, score } = await getIssueDetails(octokit, GH_OWNER, GH_REPO, ghId);
 
     console.log(`Metrics: ${JSON.stringify(details)} - Score: ${score}`);
+
+    if (ONLY_TEST_GH) {
+        return;
+    }
 
     console.log("Retrieving the corresponding ADO work item and updating it...");
     await updateWorkItemForIssue(adoClient, details, score);
