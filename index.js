@@ -210,6 +210,7 @@ async function getCommentsFromRest(ghId) {
 function getIssueFromPayload() {
     let env = process.env;
     let payload = github.context.payload;
+    console.log("PAYLOAD:" + JSON.stringify(payload));
 	var vm = {
 		action: payload.action != undefined ? payload.action : "",
 		url: payload.issue.html_url != undefined ? payload.issue.html_url : "",
