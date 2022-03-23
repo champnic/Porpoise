@@ -17,6 +17,7 @@ const { updateWorkItemForIssue } = require("./ado.js");
 // GH_PAT: A GitHub Personal Access Token with the "repo" scope.
 // GH_OWNER: The owner of the GitHub repo, ie. "MicrosoftEdge"
 // GH_REPO: The name of the repo, ie. "WebView2Feedback"
+// GH_TEST_ID: An issue number to be used when testing locally.
 // ADO_PAT: An Azure DevOps Personal Access Token with the "Work Items - Read & Write" scope.
 // ADO_ORG: The name of the ADO org, ie. "Microsoft"
 
@@ -36,12 +37,12 @@ const ADO_PAT = process.env.ADO_PAT;
 const adoClient = new ado.WebApi(ADO_URL, ado.getPersonalAccessTokenHandler(ADO_PAT));
 
 // Test issue number when running locally
-const TEST_GH_ID = 1;
+const GH_TEST_ID = process.env.GH_TEST_ID || 1;
 // Set to true if you want to only test the GitHub API part, but not write to ADO.
 const ONLY_TEST_GH = false;
 
 async function run() {
-    const ghId = isGitHubAction ? github.context.issue.number : TEST_GH_ID;
+    const ghId = isGitHubAction ? github.context.issue.number : GH_TEST_ID;
 
     console.log(`Retrieving metrics about issue ${ghId} and calculating a score...`);
     const { metrics, score } = await getIssueDetails(octokit, GH_OWNER, GH_REPO, ghId);
