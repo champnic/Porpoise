@@ -19,8 +19,8 @@ const fieldDescription = "System.Description";
 const fieldCustomString3 = "Microsoft.VSTS.Common.CustomString03";
 
 // Metric Text
-const startTag = "---- GitHub Metrics (auto-generated) ----"
-const endTag = "---- End GitHub Metrics ----"
+const startTag = "------------- <b>GitHub Metrics (auto-generated)</b> -------------"
+const endTag =   "------------- <b>End GitHub Metrics</b> --------------------------"
 const nl = "<br/>"
 
 // END CONSTANTS
@@ -40,7 +40,7 @@ async function run() {
     adoWork = await edgeAdo.getWorkItemTrackingApi();
 
     // Uncomment this line to test the metrics updating
-    //writeMetricsToAdo(38617678, 12, 3, 14, 27);
+    //writeMetricsToAdo(38617678, {"Reactions": 12, "Users": 4, "Messages": 20}, 27);
 }
 
 /**
@@ -49,12 +49,11 @@ async function run() {
  * be added into a GitHub Metrics section in the Description or Repro Steps.
  * 
  * @param {number} workId - The ADO work item id of the item to be updated. 
- * @param {number} reactions - The number of positive reactions to the GH issue.
- * @param {number} users - The number of unique non-Edge devs responding to a GH issue.
- * @param {number} comments - The number of comments on a GH issue.
+ * @param {object} metrics - The metrics to be displayed in a table.
+ *                           The property names are the keys and the metrics are the values.
  * @param {number} result - The result of the GH Importance calculation.
  */
-async function writeMetricsToAdo(workId, reactions, users, comments, result) {
+async function writeMetricsToAdo(workId, metrics, result) {
     let adoWork = await edgeAdo.getWorkItemTrackingApi();
 
     let myBug = await adoWork.getWorkItem(workId);
@@ -80,12 +79,13 @@ async function writeMetricsToAdo(workId, reactions, users, comments, result) {
     }
 
     // TODO: Make this look nicer. Table? Can use HTML formatting.
-    let metricsString = "Reactions: " + reactions + nl +
-        "UniqueUsers: " + users + nl +
-        "Comments: " + comments;
+    let metricsString = "<table>";
+    Object.entries(metrics).forEach(([key, value]) => {
+        metricsString += "<tr><td>"+key+"</td><td>"+value+"</td></tr>";
+    });
+    metricsString += "</table>";
 
     let newDescription = startString + startTag + nl + metricsString + nl + endTag + endString;
-
 
     // The "patchDoc" describes what fields of the workitem should be updated, and the values.
     let patchDoc = [];
