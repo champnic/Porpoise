@@ -11,9 +11,6 @@
     "@octokit/graphql": "^4.8.0"
   },
   "devDependencies": {},
-  "scripts": {
-    "test": "test"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/champnic/Porpoise.git"

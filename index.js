@@ -1,6 +1,8 @@
-const github = require(`@actions/github`);
+const github = require("@actions/github");
 const ado = require("azure-devops-node-api");
 require("dotenv").config();
+
+const getIssueDetails = require("./issue.js");
 
 // Uncomment this line to verify that the environment and PATs are loaded correctly
 //console.log(process.env);
@@ -33,8 +35,8 @@ const fieldDescription = "System.Description";
 const fieldCustomString3 = "Microsoft.VSTS.Common.CustomString03";
 
 // Metric Text
-const startTag = "------------- <b>GitHub Metrics (auto-generated)</b> -------------"
-const endTag = "------------- <b>End GitHub Metrics</b> --------------------------"
+const startGhMetricsTag = "------------- <b>GitHub Metrics (auto-generated)</b> -------------"
+const endGhMetricsTag = "------------- <b>End GitHub Metrics</b> --------------------------"
 const nl = "<br/>"
 
 // Test issue number when running locally
@@ -55,46 +57,22 @@ const octokit = github.getOctokit(ghToken);
  */
 async function run() {
     console.log('Retrieving information about the GitHub issue...');
-    const ghIssue = await getGitHubIssue();
-
-    console.log('Calculating our issue metrics ...');
-    const { metrics, score } = await calculateGitHubIssueMetrics(ghIssue);
-    console.log(`Metrics: ${JSON.stringify(metrics)} - Score: ${score}`);
+    const ghId = runningOnGitHub ? github.context.issue.number : testGhId;
+    const issueDetails = await getIssueDetails(octokit, ghOwner, ghRepo, ghId);
+    
+    console.log('Calculating the issue score ...');
+    const issueScore = await calculateGitHubIssueScore(issueDetails);
+    console.log(`Metrics: ${JSON.stringify(issueDetails)} - Score: ${issueScore}`);
 
     console.log('Retrieving the corresponding ADO work item...');
-    const adoId = getAdoWorkItemFromIssue(ghIssue);
+    const adoWorkItem = await getAdoWorkItemFromIssue(issueDetails);
 
-    if (adoId) {
-        console.log(`Writing to ADO work item ${adoId}...`);
-        adoWork = await adoWeb.getWorkItemTrackingApi();
-        await writeMetricsToAdo(adoId, metrics, score);
+    if (adoWorkItem) {
+        console.log(`Writing to ADO work item...`);
+        await writeMetricsToAdo(adoWorkItem, issueDetails, issueScore);
     } else {
         console.log('No ADO work item found.');
     }
-}
-
-/**
- * Retrieve the github issue.
- * Either we're running in a GitHub action and the issue is given to us by the github context.
- * Or we're running locally and we use a hard-coded issue number.
- * We also retrieve comments and other info about the issue to help calculate metrics.
- * 
- * @returns {Object} The issue object.
- */
-async function getGitHubIssue() {
-    let ghIssue;
-
-    if (runningOnGitHub) {
-        // Running on GitHub, get info from the context payload
-        ghIssue = github.context.payload.issue;
-    } else {
-        // Running locally
-        ghIssue = await getIssueFromRest(testGhId);
-    }
-
-    ghIssue.comments = await getCommentsFromRest(ghIssue.number);
-
-    return ghIssue;
 }
 
 /**
@@ -102,30 +80,26 @@ async function getGitHubIssue() {
  * with the given work item id. The result will be put into CustomString03, and the rest will
  * be added into a GitHub Metrics section in the Description or Repro Steps.
  * 
- * @param {number} workId - The ADO work item id of the item to be updated. 
- * @param {object} metrics - The metrics to be displayed in a table.
- *                           The property names are the keys and the metrics are the values.
- * @param {number} result - The result of the GH Importance calculation.
+ * @param {object} adoWorkItem The ADO work item to be updated. 
+ * @param {object} metrics The metrics to be updated in the work item's description.
+ * @param {number} score The importance score to be added in the work item's custom string.
  */
-async function writeMetricsToAdo(workId, metrics, result) {
-    //let adoWork = await edgeAdo.getWorkItemTrackingApi();
-
-    let myBug = await adoWork.getWorkItem(workId);
-    let descriptionFieldName = myBug.fields[fieldWorkItemType] == "Bug"
+async function writeMetricsToAdo(adoWorkItem, metrics, score) {
+    const descriptionFieldName = adoWorkItem.fields[fieldWorkItemType] == "Bug"
         ? fieldReproSteps
         : fieldDescription;
-    let currentDescription = myBug.fields[descriptionFieldName] ?? "";
+    const currentDescription = adoWorkItem.fields[descriptionFieldName] ?? "";
 
-    // This code will try to find an existing set of GH metrics in the description and update it.
-    // If not, it will add a new GH metrics section to the end of the description.
-    let startIndex = currentDescription.indexOf(startTag);
-    let endIndex = currentDescription.indexOf(endTag);
+    // Try to find an existing set of GH metrics in the description and update it.
+    // If not found, add a new GH metrics section to the end of the description.
+    const startIndex = currentDescription.indexOf(startGhMetricsTag);
+    const endIndex = currentDescription.indexOf(endGhMetricsTag);
 
     let startString = currentDescription;
     let endString = "";
     if (startIndex >= 0 && endIndex >= 0) {
         startString = currentDescription.substring(0, startIndex);
-        endString = currentDescription.substring(endIndex + endTag.length);
+        endString = currentDescription.substring(endIndex + endGhMetricsTag.length);
     } else {
         // If we haven't added metrics before, add newlines.
         startString += nl;
@@ -133,76 +107,75 @@ async function writeMetricsToAdo(workId, metrics, result) {
     }
 
     // TODO: Make this look nicer. Table? Can use HTML formatting.
-    let metricsString = "<table>";
-    Object.entries(metrics).forEach(([key, value]) => {
-        metricsString += "<tr><td>" + key + "</td><td>" + value + "</td></tr>";
-    });
-    metricsString += "</table>";
+    const metricsString = `
+        <ul>
+          <li><strong>Score</strong>: ${score}</li>
+          <li><strong>Unique users</strong>: ${metrics.uniqueUsers}</li>
+          <li><strong>Comments</strong>: ${metrics.nbComments}</li>
+          <li><strong>Reactions</strong>: ${metrics.reactions.positive} 😀 / ${metrics.reactions.neutral} 😐 / ${metrics.reactions.negative} 😒</li>
+          <li><strong>Reactions on comments</strong>: ${metrics.reactionsOnComments.positive} 😀 / ${metrics.reactionsOnComments.neutral} 😐 / ${metrics.reactionsOnComments.negative} 😒</li>
+          <li><strong>Mentions</strong>: ${metrics.nbMentions}</li>
+        </ul>
+    `;
 
-    let newDescription = startString + startTag + nl + metricsString + nl + endTag + endString;
+    const newDescription = startString + startGhMetricsTag + nl + metricsString + endGhMetricsTag + endString;
 
     // The "patchDoc" describes what fields of the workitem should be updated, and the values.
     let patchDoc = [];
     patchDoc.push({
         op: "add",
         path: "/fields/" + fieldCustomString3,
-        value: "GH=" + result
+        value: "GitHub score=" + score
     });
     patchDoc.push({
         op: "add",
         path: "/fields/" + descriptionFieldName,
         value: newDescription
     });
-    await adoWork.updateWorkItem([], patchDoc, workId);
-}
-
-/**
- * Calculate the metrics and total importance score for the given GitHub issue.
- * 
- * @param {Object} issue The GitHub issue object.
- * @returns {Object} The metrics and score for this issue.
- */
-async function calculateGitHubIssueMetrics(issue) {
-    const metrics = {
-        ReactionCount: 0,
-        // start with 1 because listComments does not include the main issue body
-        CommentCount: 1,
-        UniqueUserCount: 1
-    }
-
-    metrics.ReactionCount += issue.reactions.total_count;
-
-    // process comments
-    metrics.CommentCount += issue.comments.length;
-    let uniqueUsers = new Set();
-    uniqueUsers.add(issue.user.id);
-    for (let comment of issue.comments) {
-        uniqueUsers.add(comment.user.id);
-        metrics.ReactionCount += comment.reactions.total_count;
-    }
-    metrics.UniqueUserCount = uniqueUsers.size;
-
-    return { metrics, score: calculateGitHubIssueScore(metrics) };
+    await adoWork.updateWorkItem([], patchDoc, adoWorkItem.id);
 }
 
 /**
  * Given the metrics for a GitHub issue, calculate the total importance score.
  * 
  * @param {Object} metrics The metrics object to calculate the score for.
- * @returns {number}
+ * @returns {number} The calculated score.
  */
 function calculateGitHubIssueScore(metrics) {
-    // FIXME: Find a better way than just adding these numbers up.
-    return metrics.ReactionCount + metrics.CommentCount + metrics.UniqueUserCount;
+    // FIXME: Find a better way to do this.
+    let score = 0;
+
+    // Each unique user counts as 2 points.
+    score += metrics.uniqueUsers * 2;
+
+    // Each positive reaction on the issue counts as 2 points.
+    score += metrics.reactions.positive * 2;
+
+    // But each negative reaction on the issue subtracts 2 points.
+    score -= metrics.reactions.negative * 2;
+
+    // Neutral reactions add 1 point.
+    score += metrics.reactions.neutral;
+
+    // Each positive reaction on a comment also adds 1 point.
+    score += metrics.reactionsOnComments.positive;
+
+    // Each comment counts as 2 points.
+    score += metrics.nbComments * 2;
+
+    // Mentions on this issue count as 1 point (dups and other events).
+    score += metrics.nbMentions;
+
+    return score;
 }
 
 /**
- * Given a GitHub issue, return the ADO work item id that corresponds to it.
+ * Given a GitHub issue, return the ADO work item that corresponds to it.
  * 
- * @param {number} issue The GitHub issue number.
+ * @param {Object} issueDetails The GitHub issue details object.
  * @returns {number} The ADO work item id of the corresponding ADO work item.
  */
-function getAdoWorkItemFromIssue(issue) {
+async function getAdoWorkItemFromIssue(issueDetails) {
     // We expect our GitHub issues to contain the ADO number in the issue body.
     // Example: "throwing a test ado link\r\n\r\n[AB#38543568](https://microsoft.visualstudio.com/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d/_workitems/edit/38543568)"
 
@@ -211,42 +184,13 @@ function getAdoWorkItemFromIssue(issue) {
     let ADORegExpMatch = ADOLink.match(/AB#([0-9]+)]\(https\:\/\/microsoft\.visualstudio\.com\/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d\/_workitems\/edit\//);
     */
 
-    let abIndex = issue.body.lastIndexOf("AB#");
-    let adoId = issue.body.substring(abIndex + 3, abIndex + 11);
-    return adoId;
-}
+    let abIndex = issueDetails.body.lastIndexOf("AB#");
+    let id = issueDetails.body.substring(abIndex + 3, abIndex + 11);
 
-/**
- * Given an issue number, return the issue object from the GitHub API.
- * 
- * @param {number} ghId The GitHub issue number.
- * @returns {Object} The GitHub issue object
- */
-async function getIssueFromRest(ghId) {
-    const requestParam = {
-        owner: ghOwner,
-        repo: ghRepo,
-        issue_number: ghId,
-    };
+    adoWork = await adoWeb.getWorkItemTrackingApi();
+    const workItem = await adoWork.getWorkItem(id);
 
-    const { data: issue } = await octokit.rest.issues.get(requestParam);
-    return issue;
-}
-
-/**
- * Given an issue number, return the comments on the issue from the GitHub API.
- * @param {number} ghId The GitHub issue number.
- * @returns {Array} The list of comments.
- */
-async function getCommentsFromRest(ghId) {
-    const requestParam = {
-        owner: ghOwner,
-        repo: ghRepo,
-        issue_number: ghId,
-    };
-
-    const { data: comments } = await octokit.rest.issues.listComments(requestParam);
-    return comments;
+    return workItem;
 }
 
 run();
