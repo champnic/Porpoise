@@ -55,7 +55,7 @@ async function run() {
     let ghIssue = null;
     if (runningOnGitHub) {
         // Running on GitHub, get info from the context payload
-        ghIssue = getIssueFromPayload();
+        ghIssue = github.context.payload.issue;
     } else {
         // Running locally
         ghIssue = await getIssueFromRest(1);
@@ -195,7 +195,7 @@ async function getCommentsFromRest(ghId) {
 function getIssueFromPayload() {
     let env = process.env;
     let payload = github.context.payload;
-    console.log("PAYLOAD:" + JSON.stringify(payload));
+    //console.log("PAYLOAD:" + JSON.stringify(payload));
 	var vm = {
 		action: payload.action != undefined ? payload.action : "",
 		url: payload.issue.html_url != undefined ? payload.issue.html_url : "",
