@@ -135,26 +135,11 @@ async function writeMetricsToAdo(workId, metrics, result) {
     await adoWork.updateWorkItem([], patchDoc, workId);
 }
 
-// This function is just a testbed for how the ADO API works, like what values are
-// returned by Work Item Types, Bugs, all Fields, etc.
-async function testAdo() {
-    let testId = 38617678;
-    let adoWork = await adoWeb.getWorkItemTrackingApi();
-
-    let myBug = await adoWork.getWorkItem(testId);
-    // Work item types
-    //let bugType = await adoWork.getWorkItemType("Edge", "Bug");
-    //let scenarioType = await adoWork.getWorkItemType("Edge", "Scenario");
-
-    // All fields
-    //let fields = await adoWork.getFields("Edge");
-}
-
 // todo - add JSDoc
 async function calculateIssueMetrics(issue) {
 	let metrics = {
 		ReactionCount: 0,
-		CommentCount: 1,		// start wiith 1 because listComments does not include the main issue body
+		CommentCount: 1,		// start with 1 because listComments does not include the main issue body
 		UniqueUserCount: 1 
 	}
 
