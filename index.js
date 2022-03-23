@@ -54,7 +54,36 @@ const octokit = github.getOctokit(ghToken);
  * Main entry point. Called automatically at the bottom of this file.
  */
 async function run() {
-    let ghIssue = null;
+    console.log('Retrieving information about the GitHub issue...');
+    const ghIssue = await getGitHubIssue();
+
+    console.log('Calculating our issue metrics ...');
+    const { metrics, score } = await calculateGitHubIssueMetrics(ghIssue);
+    console.log(`Metrics: ${JSON.stringify(metrics)} - Score: ${score}`);
+
+    console.log('Retrieving the corresponding ADO work item...');
+    const adoId = getAdoWorkItemFromIssue(ghIssue);
+
+    if (adoId) {
+        console.log(`Writing to ADO work item ${adoId}...`);
+        adoWork = await adoWeb.getWorkItemTrackingApi();
+        await writeMetricsToAdo(adoId, metrics, score);
+    } else {
+        console.log('No ADO work item found.');
+    }
+}
+
+/**
+ * Retrieve the github issue.
+ * Either we're running in a GitHub action and the issue is given to us by the github context.
+ * Or we're running locally and we use a hard-coded issue number.
+ * We also retrieve comments and other info about the issue to help calculate metrics.
+ * 
+ * @returns {Object} The issue object.
+ */
+async function getGitHubIssue() {
+    let ghIssue;
+
     if (runningOnGitHub) {
         // Running on GitHub, get info from the context payload
         ghIssue = github.context.payload.issue;
@@ -65,17 +94,7 @@ async function run() {
 
     ghIssue.comments = await getCommentsFromRest(ghIssue.number);
 
-    const ghMetrics = await calculateIssueMetrics(ghIssue);
-    console.log("Metrics: " + JSON.stringify(ghMetrics));
-
-    const adoId = getAdoFromIssue(ghIssue);
-
-    if (adoId) {
-        // Initialize connection to ADO work tracking.
-        adoWork = await adoWeb.getWorkItemTrackingApi();
-
-        await writeMetricsToAdo(adoId, ghMetrics, 42);
-    }
+    return ghIssue;
 }
 
 /**
@@ -137,11 +156,17 @@ async function writeMetricsToAdo(workId, metrics, result) {
     await adoWork.updateWorkItem([], patchDoc, workId);
 }
 
-// todo - add JSDoc
-async function calculateIssueMetrics(issue) {
-    let metrics = {
+/**
+ * Calculate the metrics and total importance score for the given GitHub issue.
+ * 
+ * @param {Object} issue The GitHub issue object.
+ * @returns {Object} The metrics and score for this issue.
+ */
+async function calculateGitHubIssueMetrics(issue) {
+    const metrics = {
         ReactionCount: 0,
-        CommentCount: 1,		// start with 1 because listComments does not include the main issue body
+        // start with 1 because listComments does not include the main issue body
+        CommentCount: 1,
         UniqueUserCount: 1
     }
 
@@ -157,19 +182,46 @@ async function calculateIssueMetrics(issue) {
     }
     metrics.UniqueUserCount = uniqueUsers.size;
 
-    return metrics;
+    return { metrics, score: calculateGitHubIssueScore(metrics) };
 }
 
-function getAdoFromIssue(issue) {
-    // example issue body: "throwing a test ado link\r\n\r\n[AB#38543568](https://microsoft.visualstudio.com/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d/_workitems/edit/38543568)
+/**
+ * Given the metrics for a GitHub issue, calculate the total importance score.
+ * 
+ * @param {Object} metrics The metrics object to calculate the score for.
+ * @returns {number}
+ */
+function calculateGitHubIssueScore(metrics) {
+    // FIXME: Find a better way than just adding these numbers up.
+    return metrics.ReactionCount + metrics.CommentCount + metrics.UniqueUserCount;
+}
+
+/**
+ * Given a GitHub issue, return the ADO work item id that corresponds to it.
+ * 
+ * @param {number} issue The GitHub issue number.
+ * @returns {number} The ADO work item id of the corresponding ADO work item.
+ */
+function getAdoWorkItemFromIssue(issue) {
+    // We expect our GitHub issues to contain the ADO number in the issue body.
+    // Example: "throwing a test ado link\r\n\r\n[AB#38543568](https://microsoft.visualstudio.com/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d/_workitems/edit/38543568)"
+
+    /* Work in progress
     let ADOLink = issue.body.substring(issue.body.lastIndexOf('\r\n\r\n[AB#'));
     let ADORegExpMatch = ADOLink.match(/AB#([0-9]+)]\(https\:\/\/microsoft\.visualstudio\.com\/90b2a23c-cab8-4e7c-90e7-a977f32c1f5d\/_workitems\/edit\//);
+    */
 
     let abIndex = issue.body.lastIndexOf("AB#");
     let adoId = issue.body.substring(abIndex + 3, abIndex + 11);
-    return adoId; //ADORegExpMatch ? ADORegExpMatch[1] : undefined;
+    return adoId;
 }
 
+/**
+ * Given an issue number, return the issue object from the GitHub API.
+ * 
+ * @param {number} ghId The GitHub issue number.
+ * @returns {Object} The GitHub issue object
+ */
 async function getIssueFromRest(ghId) {
     const requestParam = {
         owner: ghOwner,
@@ -177,11 +229,15 @@ async function getIssueFromRest(ghId) {
         issue_number: ghId,
     };
 
-    // process the issue body
     const { data: issue } = await octokit.rest.issues.get(requestParam);
-    return issue; 5
+    return issue;
 }
 
+/**
+ * Given an issue number, return the comments on the issue from the GitHub API.
+ * @param {number} ghId The GitHub issue number.
+ * @returns {Array} The list of comments.
+ */
 async function getCommentsFromRest(ghId) {
     const requestParam = {
         owner: ghOwner,
