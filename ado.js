@@ -34,15 +34,17 @@ module.exports.updateWorkItemForIssue = async function (adoClient, metrics, scor
  */
 async function getAdoWorkItemFromIssue(adoClient, issueBody) {
     // We expect our GitHub issues to contain the ADO number in the issue body.
-    // Example: "throwing a test ado link\r\n\r\n[AB#38543568](https://microsoft.visualstudio.com/.../_workitems/edit/38543568)"
+    // The ADO number should be in the format "AB#12345".
+    // The logic below will extract the last instance of this format in the issue body.
 
-    const abIndex = issueBody.lastIndexOf("AB#");
-    if (abIndex === -1) {
+    const matches = issueBody.matchAll(/AB#([0-9]+)/g);
+    const lastRef = [...matches].pop();
+    if (!lastRef) {
         console.log("No ADO link found in issue body.");
         return null;
     }
-
-    const id = issueBody.substring(abIndex + 3, abIndex + 11);
+    
+    const id = lastRef[1];
 
     const adoWIT = await adoClient.getWorkItemTrackingApi();
     const workItem = await adoWIT.getWorkItem(id);
