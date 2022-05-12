@@ -14,7 +14,8 @@ const NL = "<br/>";
  * it with the given metrics and score.
  * 
  * @param {Object} adoClient The ADO API client object.
- * @param {Object} metrics the GitHub issue metrics and score.
+ * @param {Object} metrics The GitHub issue metrics.
+ * @param {Object} score The calculated score based on the metrics, including version.
  */
 module.exports.updateWorkItemForIssue = async function (adoClient, metrics, score) {
     const adoWorkItem = await getAdoWorkItemFromIssue(adoClient, metrics.body);
@@ -92,7 +93,7 @@ async function writeMetricsToAdo(adoClient, adoWorkItem, metrics, score) {
     // TODO: Make this look nicer. Table? Can use HTML formatting.
     const metricsString = `
     <ul>
-      <li><strong>Score</strong>: ${score}</li>
+      <li><strong>Score</strong>: ${score.value} (Version: ${score.version})</li>
       <li><strong>Unique users</strong>: ${metrics.uniqueUsers}</li>
       <li><strong>All comments</strong>: ${metrics.nbComments}</li>
       <li><strong>Non-member comments</strong>: ${metrics.nbNonMemberComments}</li>
@@ -103,13 +104,16 @@ async function writeMetricsToAdo(adoClient, adoWorkItem, metrics, score) {
   `;
 
     const newDescription = startString + START_METRICS_TAG + NL + metricsString + END_METRICS_TAG + endString;
+    const scoreString = score.version == 0 ?
+        `GitHub score = ${score.value}` : // If we haven't specified coefficients, use the old way of displaying the string.
+        `${score.value} (GitHub Score v${score.version})`;
 
     // The "patchDoc" describes what fields of the work item should be updated, and the values.
     const patchDoc = [];
     patchDoc.push({
         op: "add",
         path: "/fields/" + FIELD_CUSTOM_STRING_3,
-        value: "GitHub score=" + score
+        value: scoreString
     });
     patchDoc.push({
         op: "add",

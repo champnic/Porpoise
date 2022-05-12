@@ -56,6 +56,18 @@ const IS_ACTION = !!github.context.action;
 const IS_ISSUE_UPDATED_ACTION = IS_ACTION && github.context.issue;
 const GH_ID = IS_ACTION && IS_ISSUE_UPDATED_ACTION ? github.context.issue.number : process.env.GH_TEST_ID;
 
+const GH_SCORE_COEFFS = {
+    version: process.env.COEFF_VERSION ?? 0,
+    uniqueUsers: process.env.COEFF_UNIQUE_USERS ?? 2,
+    posReactions: process.env.COEFF_POS_REACTIONS ?? 2,
+    negReactions: process.env.COEFF_NEG_REACTIONS ?? -2,
+    neutralReactions: process.env.COEFF_NEUTRAL_REACTIONS ?? 1,
+    posCommentReactions: process.env.COEFF_POS_COMMENT_REACTIONS ?? 1,
+    nonMemberComments: process.env.COEFF_NON_MEMBER_COMMENTS ?? 2,
+    memberComments: process.env.COEFF_MEMBER_COMMENTS ?? 1,
+    mentions: process.env.COEFF_MENTIONS ?? 1
+};
+
 async function run() {
     if (GH_ID) {
         console.log(`GitHub issue ${GH_ID} was provided, handling just this one.`);
@@ -72,9 +84,9 @@ async function run() {
 
 async function handleOneIssue(ghId) {
     console.log(`Retrieving metrics about issue ${ghId} and calculating a score...`);
-    const { metrics, score } = await getIssueDetails(octokit, GH_OWNER, GH_REPO, ghId);
+    const { metrics, score } = await getIssueDetails(octokit, GH_OWNER, GH_REPO, ghId, GH_SCORE_COEFFS);
 
-    console.log(`Metrics: ${formatMetrics(metrics)} - Score: ${score}`);
+    console.log(`Metrics: ${formatMetrics(metrics)} - Score: ${score.value} - Version: ${score.version}`);
 
     if (ONLY_TEST_GH) {
         return;

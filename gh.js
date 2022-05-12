@@ -17,9 +17,10 @@ const NB_OF_ISSUES = 20;
  * @param {string} ghOwner The GitHub owner
  * @param {string} ghRepo The GitHub repo
  * @param {number} ghId The GitHub issue number
- * @returns {Object} The GitHub issue details object
+ * @param {Object} coefficients The coefficients used in the calculation function.
+ * @returns {Object} The GitHub issue details object which includes the metrics and score.
  */
-module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId) {
+module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId, coefficients) {
   const metrics = {
     id: ghId,
     body: "",
@@ -81,7 +82,10 @@ module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId)
   metrics.nbComments = issue.comments.nodes.length;
   metrics.uniqueUsers = users.size;
 
-  const score = calculateGitHubIssueScore(metrics);
+  const score = {
+    value: calculateGitHubIssueScore(metrics, coefficients),
+    version: coefficients.version
+  };
 
   return { metrics, score };
 }
@@ -90,33 +94,21 @@ module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId)
  * Given the metrics for a GitHub issue, calculate the total importance score.
  * 
  * @param {Object} metrics The metrics object to calculate the score for.
+ * @param {Object} coefficients The coefficients used in the calculation function.
  * @returns {number} The calculated score.
  */
-function calculateGitHubIssueScore(metrics) {
-  // FIXME: Find a better way to do this.
-  let score = 0;
-
-  // Each unique user counts as 2 points.
-  score += metrics.uniqueUsers * 2;
-
-  // Each positive reaction on the issue counts as 2 points.
-  score += metrics.reactions.positive * 2;
-
-  // But each negative reaction on the issue subtracts 2 points.
-  score -= metrics.reactions.negative * 2;
-
-  // Neutral reactions add 1 point.
-  score += metrics.reactions.neutral;
-
-  // Each positive reaction on a comment also adds 1 point.
-  score += metrics.reactionsOnComments.positive;
-
-  // Each non-member comment counts as 2 points, and member comment as 1.
-  score += metrics.nbComments - metrics.nbNonMemberComments;
-  score += metrics.nbNonMemberComments * 2;
-
-  // Mentions on this issue count as 1 point (dups and other events).
-  score += metrics.nbMentions;
+function calculateGitHubIssueScore(metrics, coefficients) {
+  // The score is a linear function of the various metrics we gather for each GitHub issue.
+  // The coefficients 
+  let score = 
+    metrics.uniqueUsers * coefficients.uniqueUsers + // 2
+    metrics.reactions.positive * coefficients.posReactions + // 2
+    metrics.reactions.negative * coefficients.negReactions + // -2
+    metrics.reactions.neutral * coefficients.neutralReactions + // 1
+    metrics.reactionsOnComments.positive * coefficients.posCommentReactions + // 1
+    metrics.nbNonMemberComments * coefficients.nonMemberComments + //2
+    (metrics.nbComments - metrics.nbNonMemberComments) * coefficients.memberComments + // 1
+    metrics.nbMentions * coefficients.mentions; // 1
 
   return score;
 }
