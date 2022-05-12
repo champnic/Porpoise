@@ -26,13 +26,16 @@
 // GH_TRACKED_LABELS: A list of labels that we use to know which issues are considered tracked.
 // ADO_PAT: An Azure DevOps Personal Access Token with the "Work Items - Read & Write" scope.
 // ADO_ORG: The name of the ADO org, ie. "Microsoft"
+// ADO_PROJECT: The name of the ADO project, ie. "Edge"
+// ADO_AREA_PATH: The name of the ADO area path to get items to update and score. Omit to test retrieving a list
+//             of random issues to update.
 
 require("dotenv").config();
 
 const github = require("@actions/github");
 const ado = require("azure-devops-node-api");
 const { getIssueDetails, getRandomIssuesToBeUpdated } = require("./gh.js");
-const { updateWorkItemForIssue } = require("./ado.js");
+const { updateWorkItemForIssue, getIssuesFromAreaPath } = require("./ado.js");
 
 // GitHub API information and client.
 const GH_PAT = process.env.GH_PAT;
@@ -45,8 +48,10 @@ const octokit = github.getOctokit(GH_PAT);
 
 // ADO API information and client.
 const ADO_ORG = process.env.ADO_ORG;
+const ADO_PROJECT = process.env.ADO_PROJECT;
 const ADO_PAT = process.env.ADO_PAT;
 const ADO_URL = `https://dev.azure.com/${ADO_ORG}`;
+const ADO_AREA_PATH = process.env.ADO_AREA_PATH;
 
 const adoClient = new ado.WebApi(ADO_URL, ado.getPersonalAccessTokenHandler(ADO_PAT));
 
@@ -74,6 +79,13 @@ async function run() {
     if (GH_ID) {
         console.log(`GitHub issue ${GH_ID} was provided, handling just this one.`);
         await handleOneIssue(GH_ID);
+    } else if (ADO_AREA_PATH) {
+        console.log(`ADO Area Path was specified, get items to calculate score for.`);
+        const issues = await getIssuesFromAreaPath(adoClient, ADO_PROJECT, ADO_AREA_PATH, GH_SCORE_COEFFS.version);
+        for (const issue of issues) {
+            console.log(`Handling issue ${issue}`);
+            await handleOneIssue(issue);
+        }
     } else {
         console.log("No GitHub issue was provided, getting a random list...");
         const issues = await getRandomIssuesToBeUpdated(octokit, GH_OWNER, GH_REPO, GH_TRACKED_LABELS, GH_BATCH_LIMIT);

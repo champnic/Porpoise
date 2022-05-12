@@ -61,7 +61,9 @@ module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId,
     }
     metrics.mentions[event.type]++;
 
-    users.add(event.actor.login);
+    // event.actor may be null if the user no longer has an account on GitHub (shows as "Ghost").
+    // However, they were a unique user at some point so add 'null' to the set as well.
+    users.add(event.actor?.login);
   }
 
   metrics.reactions = processReactions(issue.reactions);

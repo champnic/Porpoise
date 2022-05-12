@@ -2,6 +2,10 @@
 const FIELD_WI_TYPE = "Microsoft.VSTS.CMMI.TaskType";
 const FIELD_REPRO_STEPS = "Microsoft.VSTS.TCM.ReproSteps";
 const FIELD_DESCRIPTION = "System.Description";
+const FIELD_AREA_PATH = "System.AreaPath";
+const FIELD_TITLE = "System.Title";
+const FIELD_STATE = "System.State";
+const FIELD_ID = "System.Id";
 const FIELD_CUSTOM_STRING_3 = "Microsoft.VSTS.Common.CustomString03";
 
 // Metric Text
@@ -124,4 +128,71 @@ async function writeMetricsToAdo(adoClient, adoWorkItem, metrics, score) {
 
     const adoWIT = await adoClient.getWorkItemTrackingApi();
     await adoWIT.updateWorkItem([], patchDoc, adoWorkItem.id);
+}
+
+/**
+ * Takes an ADO work item id and attempts to find a corresponding GitHub issue
+ * number using the '[GitHub #<issue>]' format in the title. If multiple issues
+ * are present, it will only use the first one.
+ * 
+ * @param {Object} adoClient The ADO API client object.
+ * @param {number} adoId The ADO work item to be updated.
+ * @returns {number} The corresponding GitHub issue number, if one was found, otherwise null.
+ */
+getIssueFromAdoWorkItem = async function (adoClient, adoId) {
+    const adoWIT = await adoClient.getWorkItemTrackingApi();
+    const workItem = await adoWIT.getWorkItem(adoId);
+    const title = workItem.fields["System.Title"];
+    
+    const matches = title.matchAll(/GitHub #([0-9]+)[^0-9]/gi);
+    const lastRef = [...matches].pop();
+    if (!lastRef) {
+        console.log(`No GitHub issue found in title for ADO ID: ${adoId} Title: ${title}`);
+        return null;
+    }
+    
+    const issue = lastRef[1];
+    console.log(`Found GitHub issue: ${issue} ADO ID: ${adoId} Title: ${title}`);
+    return issue;
+}
+
+/**
+ * Finds all active Scenarios that need updated scores under a given area path, to make it easy to update
+ * scores when looking at a particular backlog.
+ * 
+ * @param {Object} adoClient The ADO API client object.
+ * @param {string} adoProject The ADO project within the org, such as "Edge".
+ * @param {string} areaPath The area path to search for items under, such as "Edge\\Dev Experience\\WebView\\Core".
+ * @param {string} scoreVersion The version of the scoring coefficients, to make sure we are updating only unscored items.
+ * @returns {Set} The set of GitHub issues that should be handled to update the items in the given area path.
+ */
+module.exports.getIssuesFromAreaPath = async function (adoClient, adoProject, areaPath, scoreVersion) {
+    const wiql = {
+        query: `SELECT [${FIELD_ID}] FROM workitems 
+            WHERE [System.TeamProject] = @project
+            AND [${FIELD_AREA_PATH}] UNDER '${areaPath}'
+            AND [${FIELD_STATE}] IN ('Proposed','Committed','Started')
+            AND [System.WorkItemType] = 'Scenario'
+            AND [${FIELD_TITLE}] CONTAINS 'GitHub #'
+            AND [${FIELD_CUSTOM_STRING_3}] NOT CONTAINS 'v${scoreVersion}'
+            ORDER BY [${FIELD_ID}] asc`
+    };
+    console.log("ADO query: " + wiql.query);
+
+    let issues = new Set();
+
+    const adoWIT = await adoClient.getWorkItemTrackingApi();
+    let queryResult = await adoWIT.queryByWiql(wiql, { project: adoProject });
+    console.log(`Found ids: ${queryResult.workItems.map(item => item.id)}`);
+    if (queryResult?.workItems.length > 0) {
+        await Promise.all(queryResult.workItems.map(async workItem => {
+            const issue = await getIssueFromAdoWorkItem(adoClient, workItem.id);
+            if (issue > 0) {
+                issues.add(issue);
+            }
+        }));
+    } else {
+        console.log(`No workitems found in area path ${areaPath}`);
+    }
+    return issues;
 }
