@@ -181,7 +181,7 @@ function processReactions(reactions) {
   return processed;
 }
 
-module.exports.getRandomIssuesToBeUpdated = function (octokit, ghOwner, ghRepo, labels) {
+module.exports.getRandomIssuesToBeUpdated = function (octokit, ghOwner, ghRepo, labels, batchLimit) {
   return octokit.paginate(octokit.rest.issues.listForRepo, {
     owner: ghOwner,
     repo: ghRepo,
@@ -195,7 +195,7 @@ module.exports.getRandomIssuesToBeUpdated = function (octokit, ghOwner, ghRepo, 
 
     // Shuffle the array and get the first NB_OF_ISSUES.
     const shuffled = issues.sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, NB_OF_ISSUES);
+    const selected = shuffled.slice(0, batchLimit ?? NB_OF_ISSUES);
 
     // Process each issue.
     return selected;

@@ -39,12 +39,14 @@ const GH_PAT = process.env.GH_PAT;
 const GH_OWNER = process.env.GH_OWNER;
 const GH_REPO = process.env.GH_REPO;
 const GH_TRACKED_LABELS = process.env.GH_TRACKED_LABELS;
+const GH_BATCH_LIMIT = process.env.GH_BATCH_LIMIT;
 
 const octokit = github.getOctokit(GH_PAT);
 
 // ADO API information and client.
-const ADO_URL = `https://dev.azure.com/${process.env.ADO_ORG}`;
+const ADO_ORG = process.env.ADO_ORG;
 const ADO_PAT = process.env.ADO_PAT;
+const ADO_URL = `https://dev.azure.com/${ADO_ORG}`;
 
 const adoClient = new ado.WebApi(ADO_URL, ado.getPersonalAccessTokenHandler(ADO_PAT));
 
@@ -74,7 +76,7 @@ async function run() {
         await handleOneIssue(GH_ID);
     } else {
         console.log("No GitHub issue was provided, getting a random list...");
-        const issues = await getRandomIssuesToBeUpdated(octokit, GH_OWNER, GH_REPO, GH_TRACKED_LABELS);
+        const issues = await getRandomIssuesToBeUpdated(octokit, GH_OWNER, GH_REPO, GH_TRACKED_LABELS, GH_BATCH_LIMIT);
         for (const issue of issues) {
             console.log(`Found issue ${issue.number}, handling it now.`);
             await handleOneIssue(issue.number);
@@ -93,7 +95,7 @@ async function handleOneIssue(ghId) {
     }
 
     console.log("Retrieving the corresponding ADO work item and updating it...");
-    await updateWorkItemForIssue(adoClient, metrics, score);
+    await updateWorkItemForIssue(adoClient, ADO_ORG, metrics, score);
 }
 
 function formatMetrics(metrics) {

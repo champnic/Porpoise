@@ -17,11 +17,12 @@ const NL = "<br/>";
  * @param {Object} metrics The GitHub issue metrics.
  * @param {Object} score The calculated score based on the metrics, including version.
  */
-module.exports.updateWorkItemForIssue = async function (adoClient, metrics, score) {
+module.exports.updateWorkItemForIssue = async function (adoClient, adoOrg, metrics, score) {
     const adoWorkItem = await getAdoWorkItemFromIssue(adoClient, metrics.body);
 
     if (adoWorkItem) {
         console.log(`Found work item ${adoWorkItem.id}. Updating it...`);
+        console.log(`Link: https://${adoOrg}.visualstudio.com/_workitems/edit/${adoWorkItem.id}`);
         await writeMetricsToAdo(adoClient, adoWorkItem, metrics, score);
     }
 }
