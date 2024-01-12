@@ -98,6 +98,7 @@ async function writeMetricsToAdo(adoClient, adoWorkItem, metrics, score) {
     // TODO: Make this look nicer. Table? Can use HTML formatting.
     const metricsString = `
     <ul>
+      <li><strong>GitHub ID</strong>: ${metrics.id}</li>
       <li><strong>Score</strong>: ${score.value} (Version: ${score.version})</li>
       <li><strong>Unique users</strong>: ${metrics.uniqueUsers}</li>
       <li><strong>All comments</strong>: ${metrics.nbComments}</li>
