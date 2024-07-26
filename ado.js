@@ -1,3 +1,13 @@
+import fetch from 'node-fetch';
+import * as core from '@actions/core';
+import { AzureCliCredential } from '@azure/identity';
+
+const token = await initToken();
+
+const ado_organization = core.getInput('ado_organization');
+const ado_project = core.getInput('ado_project');
+const projecturl = "https://dev.azure.com/" + ado_organization + "/" + ado_project;
+
 // Field Names
 const FIELD_WI_TYPE = "Microsoft.VSTS.CMMI.TaskType";
 const FIELD_REPRO_STEPS = "Microsoft.VSTS.TCM.ReproSteps";
