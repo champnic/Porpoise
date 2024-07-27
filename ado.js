@@ -1,5 +1,8 @@
 import fetch from 'node-fetch';
 import { AzureCliCredential } from '@azure/identity';
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const token = await initToken();
 
