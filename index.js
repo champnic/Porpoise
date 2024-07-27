@@ -30,12 +30,13 @@
 // ADO_AREA_PATH: The name of the ADO area path to get items to update and score. Omit to test retrieving a list
 //             of random issues to update.
 
-require("dotenv").config();
 
-const github = require("@actions/github");
-const ado = require("azure-devops-node-api");
-const { getIssueDetails, getRandomIssuesToBeUpdated } = require("./gh.js");
-const { updateWorkItemForIssue, getIssuesFromAreaPath } = require("./ado.js");
+import * as github from "@actions/github";
+import { getIssueDetails, getRandomIssuesToBeUpdated } from "./gh.js";
+import { updateWorkItemForIssue, getIssuesFromAreaPath } from "./ado.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // GitHub API information and client.
 const GH_PAT = process.env.GH_PAT;
@@ -46,15 +47,6 @@ const GH_BATCH_LIMIT = process.env.GH_BATCH_LIMIT;
 
 const octokit = github.getOctokit(GH_PAT);
 
-// ADO API information and client.
-const ADO_ORG = process.env.ADO_ORG;
-const ADO_PROJECT = process.env.ADO_PROJECT;
-const ADO_PAT = process.env.ADO_PAT;
-const ADO_URL = `https://dev.azure.com/${ADO_ORG}`;
-const ADO_AREA_PATH = process.env.ADO_AREA_PATH;
-
-const adoClient = new ado.WebApi(ADO_URL, ado.getPersonalAccessTokenHandler(ADO_PAT));
-
 // Set to true if you want to only test the GitHub API part, but not write to ADO.
 const ONLY_TEST_GH = false;
 
@@ -62,6 +54,8 @@ const ONLY_TEST_GH = false;
 const IS_ACTION = !!github.context.action;
 const IS_ISSUE_UPDATED_ACTION = IS_ACTION && github.context.issue;
 const GH_ID = IS_ACTION && IS_ISSUE_UPDATED_ACTION ? github.context.issue.number : process.env.GH_TEST_ID;
+
+const ADO_AREA_PATH = process.env.ADO_AREA_PATH;
 
 const GH_SCORE_COEFFS = {
     version: process.env.COEFF_VERSION ?? 0,
@@ -81,7 +75,7 @@ async function run() {
         await handleOneIssue(GH_ID);
     } else if (ADO_AREA_PATH) {
         console.log(`ADO Area Path was specified, get items to calculate score for.`);
-        const issues = await getIssuesFromAreaPath(adoClient, ADO_PROJECT, ADO_AREA_PATH, GH_SCORE_COEFFS.version);
+        const issues = await getIssuesFromAreaPath(ADO_AREA_PATH, GH_SCORE_COEFFS.version);
         for (const issue of issues) {
             console.log(`Handling issue ${issue}`);
             await handleOneIssue(issue);
@@ -107,7 +101,7 @@ async function handleOneIssue(ghId) {
     }
 
     console.log("Retrieving the corresponding ADO work item and updating it...");
-    await updateWorkItemForIssue(adoClient, ADO_ORG, metrics, score);
+    await updateWorkItemForIssue(metrics, score);
 }
 
 function formatMetrics(metrics) {

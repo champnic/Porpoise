@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "Porpoise - A tool for automatically calculating the importance of work!",
   "main": "index.js",
+  "type": "module",
   "dependencies": {
     "@actions/core": "^1.6.0",
     "@actions/github": "^5.0.0",
