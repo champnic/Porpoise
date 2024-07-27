@@ -20,7 +20,7 @@ const NB_OF_ISSUES = 20;
  * @param {Object} coefficients The coefficients used in the calculation function.
  * @returns {Object} The GitHub issue details object which includes the metrics and score.
  */
-module.exports.getIssueDetails = async function (octokit, ghOwner, ghRepo, ghId, coefficients) {
+export async function getIssueDetails(octokit, ghOwner, ghRepo, ghId, coefficients) {
   const metrics = {
     id: ghId,
     body: "",
@@ -183,7 +183,7 @@ function processReactions(reactions) {
   return processed;
 }
 
-module.exports.getRandomIssuesToBeUpdated = function (octokit, ghOwner, ghRepo, labels, batchLimit) {
+export function getRandomIssuesToBeUpdated(octokit, ghOwner, ghRepo, labels, batchLimit) {
   return octokit.paginate(octokit.rest.issues.listForRepo, {
     owner: ghOwner,
     repo: ghRepo,
